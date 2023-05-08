@@ -1,0 +1,8 @@
+export function Execute(query: string, format: string): string {
+  const executeFn = ffi('char *Execute(char *, char *)');
+  const result = executeFn(query, format);
+  if (result === null) {
+    throw new Error('Out of memory');
+  }
+  return result;
+}
