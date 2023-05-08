@@ -4,8 +4,7 @@
 </a>
 
 # chdb-bun
-[chDB](https://github.com/auxten/chdb) bun.sh bindings for fun and hacking.
-
+[chDB](https://github.com/auxten/chdb) FFI bindings for [bun.sh](https://bun.sh)
 ### Status
 
 - experimental, unstable, subject to changes
