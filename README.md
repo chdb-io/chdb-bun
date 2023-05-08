@@ -13,8 +13,9 @@
 
 #### Build binding
 ```
-cd lib
-gcc -shared -fPIC -o libchdb_bun.so libchdb_bun.c -lchdb
+bun install
+bun build
+bun run example.js
 ```
 
 #### Usage
