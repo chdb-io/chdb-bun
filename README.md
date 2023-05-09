@@ -13,14 +13,14 @@ Experimental [chDB](https://github.com/auxten/chdb) FFI bindings for [bun.sh](ht
 - requires `gcc` 
 
 #### Build binding
-```
+```bash
 bun install
 bun build
 bun run example.js
 ```
 
 #### Usage
-```
+```js
 import { Execute } from '.';
 var results = Execute("SELECT version()", "CSV");
 console.log(results);
