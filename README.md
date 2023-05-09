@@ -2,6 +2,8 @@
   <img src="https://user-images.githubusercontent.com/1423657/236688026-812c5d02-ddcc-4726-baf8-c7fe804c0046.png" width=130 />
 </a>
 
+[![chDB-node](https://github.com/metrico/chdb-bun/actions/workflows/bun-test.yml/badge.svg)](https://github.com/metrico/chdb-bun/actions/workflows/bun-test.yml)
+
 # chdb-bun <img src="https://user-images.githubusercontent.com/1423657/236928733-43e4f74e-5cff-4b3f-8bb7-20df58e10829.png" height=20 />
 Experimental [chDB](https://github.com/auxten/chdb) FFI bindings for [bun.sh](https://bun.sh)
 ### Status
