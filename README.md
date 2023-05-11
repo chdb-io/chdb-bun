@@ -9,7 +9,7 @@ Experimental [chDB](https://github.com/auxten/chdb) FFI bindings for [bun.sh](ht
 ### Status
 
 - experimental, unstable, subject to changes
-- requires [`libchdb.so`](https://github.com/metrico/libchdb/releases) on the system
+- requires [`libchdb`](https://github.com/metrico/libchdb) on the system
 - requires `gcc` 
 
 #### Build binding
