@@ -1,3 +1,5 @@
+#include <stdio.h>
+#include <stdlib.h>
 #include "libchdb.h"
 #include "libchdb_bun.h"
 
