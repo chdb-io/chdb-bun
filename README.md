@@ -14,15 +14,12 @@ Experimental [chDB](https://github.com/auxten/chdb) FFI bindings for [bun.sh](ht
 
 #### Build binding
 ```bash
-bun install
-bun build
-bun run example.js
+bun install chdb-bun
 ```
 
 #### Usage
 ```js
-import { Execute } from '.';
-var results = Execute("SELECT version()", "CSV");
-console.log(results);
+import { Execute } from 'chdb-bun';
+console.log(Execute("SELECT version()", "CSV"));
 ```
 
