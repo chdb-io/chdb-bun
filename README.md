@@ -21,5 +21,6 @@ bun install chdb-bun
 ```js
 import { Execute } from 'chdb-bun';
 console.log(Execute("SELECT version()", "CSV"));
+// "23.10.1.1"
 ```
 
