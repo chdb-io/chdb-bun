@@ -1,11 +1,17 @@
 {
   "name": "chdb-bun",
+  "version": "1.0.4",
   "module": "index.js",
   "type": "module",
+  "author": "Lorenzo Mangani <lorenzo.mangani@gmail.com>",
+  "license": "Apache2.0",
   "scripts": {
     "build": "cd lib && gcc -shared -fPIC -o libchdb_bun.so libchdb_bun.c -lchdb"
   },
   "devDependencies": {
     "bun-types": "^0.5.0"
+  },
+  "directories":{
+     "lib": "lib"
   }
 }

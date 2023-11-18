@@ -19,7 +19,18 @@ bun install chdb-bun
 
 #### Usage
 ```js
-import { Execute } from 'chdb-bun';
-console.log(Execute("SELECT version()", "CSV"));
+import { db, chdb } from 'chdb-bun';
+
+const conn = new db('CSV')
+var result;
+
+// Test query
+result = conn.query("SELECT version()");
+console.log(result)
+
+// Test session
+conn.session("CREATE FUNCTION IF NOT EXISTS hello AS () -> 'chDB'");
+result = conn.session("SELECT hello()", "CSV");
+console.log(result)
 ```
 

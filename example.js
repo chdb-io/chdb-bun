@@ -1,4 +1,13 @@
-import { Execute } from '.';
+import { db, chdb } from '.';
 
+const conn = new db('CSV', '/tmp')
+var result;
 
-console.log(Execute("SELECT version()", "CSV"));
+// Test query
+result = conn.query("SELECT version()");
+console.log(result)
+
+// Test session
+conn.session("CREATE FUNCTION IF NOT EXISTS hello AS () -> 'chDB'");
+result = conn.session("SELECT hello()", "CSV");
+console.log(result)
