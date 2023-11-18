@@ -33,4 +33,3 @@ conn.session("CREATE FUNCTION IF NOT EXISTS hello AS () -> 'chDB'");
 result = conn.session("SELECT hello()", "CSV");
 console.log(result)
 ```
-
