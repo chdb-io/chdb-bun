@@ -1,4 +1,3 @@
-
 import { dlopen, FFIType, suffix, CString, ptr } from "bun:ffi";
 
 const path = `lib/libchdb_bun.${suffix}`;

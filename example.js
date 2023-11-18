@@ -4,7 +4,7 @@ const conn = new db('CSV', '/tmp')
 var result;
 
 // Test query
-result = conn.query("SELECT version()");
+result = conn.query("SELECT version(), chdb()");
 console.log(result)
 
 // Test session

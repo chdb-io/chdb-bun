@@ -4,5 +4,6 @@ export function Execute(query: string, format: string): string {
   if (result === null) {
     throw new Error('Out of memory');
   }
+  defer free_result(result)
   return result;
 }
