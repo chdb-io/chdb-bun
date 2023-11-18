@@ -1,4 +1,4 @@
-name: chDB-node
+name: chDB-bun
 
 on:
   pull_request:
