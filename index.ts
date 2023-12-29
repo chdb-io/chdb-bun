@@ -49,7 +49,7 @@ class Session {
 
   // Cleanup method to delete the temporary directory
   cleanup() {
-    rmdirSync(this.path, { recursive: true, force: true });
+    rmdirSync(this.path, { recursive: true });
   }
 }
 
