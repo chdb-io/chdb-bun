@@ -1,14 +1,8 @@
 {
   "name": "chdb-bun",
-  "version": "1.0.4",
+  "version": "1.1.0",
+  "author": "Farmer Sun <podpodiumapp@gmail.com>",
   "module": "lib/index.js",
-  "types": "lib/index.d.ts",
-  "scripts": {
-    "build:lib": "cd lib && ./build.sh",
-    "build:ts": "bun build index.ts --target=bun --outfile=lib/index.js --sourcemap=inline && tsc --declaration --emitDeclarationOnly --types bun-types --declarationDir lib index.ts",
-    "build": "bun run build:ts && bun run build:lib"
-  },
-  "type": "module",
   "devDependencies": {
     "bun-types": "^1.0.19",
     "typescript": "^5.3.3"
@@ -19,16 +13,28 @@
   "files": [
     "lib"
   ],
+  "license": "Apache2.0",
   "maintainers": [
     {
       "name": "Farmer Sun",
       "email": "podpodiumapp@gmail.com"
     },
     {
+      "name": "Auxten",
+      "email": "auxtenwpc@gmail.com"
+    },
+    {
       "name": "Lorenzo Mangani",
       "email": "lorenzo.mangani@gmail.com"
     }
   ],
-  "author": "Lorenzo Mangani <lorenzo.mangani@gmail.com>",
-  "license": "Apache2.0"
+  "scripts": {
+    "build:lib": "cd lib && ./update_libchdb.sh && ./build.sh",
+    "build:ts": "bun build index.ts --target=bun --outfile=lib/index.js --sourcemap=inline && tsc --declaration --emitDeclarationOnly --types bun-types --declarationDir lib index.ts",
+    "build": "bun run build:ts && bun run build:lib"
+  },
+  "type": "module",
+  "types": "lib/index.d.ts",
+  "dependencies": {
+  }
 }
