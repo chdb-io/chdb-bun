@@ -1,39 +1,56 @@
-import { dlopen, FFIType, suffix, CString, ptr } from "bun:ffi";
+import { dlopen, FFIType } from "bun:ffi";
+import fs from "fs";
 
-const path = `lib/libchdb_bun.${suffix}`;
+const path = `chdb_bun.so`;
 
 const { symbols: chdb } = dlopen(path, {
-  Execute: {
+  Query: {
     args: [FFIType.cstring, FFIType.cstring],
     returns: FFIType.cstring,
   },
-  ExecuteSession: {
+  QuerySession: {
     args: [FFIType.cstring, FFIType.cstring, FFIType.cstring],
     returns: FFIType.cstring,
   },
 });
 
-class db {
-  format: string;
-  path: string;
-  query(query: string, format: string = "CSV") {
-    if (!query) {
-      return "";
-    }
-    return chdb.Execute(Buffer.from(query + "\0"), Buffer.from(format + "\0"));
+// Standalone exported query function
+export function query(query: string, format: string = "CSV") {
+  if (!query) {
+    return "";
   }
-  session(query: string, format: string = "CSV", path: string = "/tmp") {
+  return chdb.Query(Buffer.from(query + "\0"), Buffer.from(format + "\0"));
+}
+
+// Session class with path handling
+class Session {
+  path: string;
+  isTemp: boolean;
+
+  query(query: string, format: string = "CSV") {
     if (!query) return "";
-    return chdb.ExecuteSession(
+    return chdb.QuerySession(
       Buffer.from(query + "\0"),
       Buffer.from(format + "\0"),
-      Buffer.from(path + "\0")
+      Buffer.from(this.path + "\0")
     );
   }
-  constructor(format: string = "JSONCompact", path: string = ".") {
-    this.format = format;
-    this.path = path;
+
+  constructor(path: string = "") {
+    if (path === "") {
+      // Create a temporary directory
+      this.path = fs.mkdtempSync("tmp-");
+      this.isTemp = true;
+    } else {
+      this.path = path;
+      this.isTemp = false;
+    }
+  }
+
+  // Cleanup method to delete the temporary directory
+  cleanup() {
+    fs.rmdirSync(this.path, { recursive: true });
   }
 }
 
-export { chdb, db };
+export { chdb, Session };
