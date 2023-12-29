@@ -14,48 +14,34 @@ Experimental [chDB](https://github.com/chdb-io/chdb) FFI bindings for the [bun r
 
 #### Build binding
 ```bash
-bun install chdb-bun
+bun run build
+bun run example.ts
 ```
 
 #### Usage
 
-#### Query Constructor
-```js
-import { db } from 'chdb-bun';
-
-const conn = new db('CSV')
-console.log(conn.query("SELECT version()"));
-```
-
-#### Query _(query, *format)_
+#### Query(query, *format) (ephemeral)
 ```javascript
-import { db } from 'chdb-bun';
-const conn = new db('CSV')
+import { query } from 'chdb-bun';
 
 // Query (ephemeral)
-var result = conn.query("SELECT version()", "CSV");
-console.log(result) // 23.10.1.1
+var result = query("SELECT version()", "CSV");
+console.log(result); // 23.10.1.1
 ```
 
-#### Session _(query, *format, *path)_
+#### Session.Query(query, *format)
 ```javascript
-import { db } from 'chdb-bun';
-const conn = new db('CSV', '/tmp')
+import { Session } from 'chdb-bun';
+const sess = new Session('./chdb-bun-tmp');
 
 // Query Session (persistent)
-conn.session("CREATE FUNCTION IF NOT EXISTS hello AS () -> 'chDB'");
-result = conn.session("SELECT hello()", "CSV");
-console.log(result)
-```
+sess.query("CREATE FUNCTION IF NOT EXISTS hello AS () -> 'Hello chDB'", "CSV");
+var result = sess.query("SELECT hello()", "CSV");
+console.log(result);
 
-> ⚠️ Sessions persist table data to disk. You can specify `path` to implement auto-cleanup strategies:
-```javascript
-const temperment = require("temperment");
-const tmp = temperment.directory();
-conn.session("CREATE FUNCTION IF NOT EXISTS hello AS () -> 'chDB'", "CSV", tmp)
-var result =  = chdb.Session("SELECT hello();")
-console.log(result) // chDB
-tmp.cleanup.sync();
+// Before cleanup, you can find the database files in `./chdb-bun-tmp`
+
+sess.cleanup(); // cleanup session, this will delete the database
 ```
 
 <br>
