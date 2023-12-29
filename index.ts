@@ -1,5 +1,5 @@
 import { dlopen, FFIType } from "bun:ffi";
-import fs from "fs";
+import { rmdirSync, mkdtempSync } from 'fs';
 
 const path = `chdb_bun.so`;
 
@@ -39,7 +39,7 @@ class Session {
   constructor(path: string = "") {
     if (path === "") {
       // Create a temporary directory
-      this.path = fs.mkdtempSync("tmp-");
+      this.path = mkdtempSync("tmp-");
       this.isTemp = true;
     } else {
       this.path = path;
@@ -49,7 +49,7 @@ class Session {
 
   // Cleanup method to delete the temporary directory
   cleanup() {
-    fs.rmdirSync(this.path, { recursive: true });
+    rmdirSync(this.path, { recursive: true, force: true });
   }
 }
 
