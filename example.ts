@@ -1,7 +1,7 @@
 import { query, Session } from ".";
 
 // Create a new session instance
-const session = new Session("/tmp");
+const session = new Session("./chdb-bun-tmp");
 var result;
 
 // Test standalone query
