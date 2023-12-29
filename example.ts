@@ -1,13 +1,17 @@
-import { db, chdb } from ".";
+import { query, Session } from ".";
 
-const conn = new db("CSV", "/tmp");
+// Create a new session instance
+const session = new Session("/tmp");
 var result;
 
-// Test query
-result = conn.query("SELECT version(), chdb()");
+// Test standalone query
+result = query("SELECT version(), 'Hello chDB', chdb()", "CSV");
 console.log(result);
 
-// Test session
-conn.session("CREATE FUNCTION IF NOT EXISTS hello AS () -> 'chDB'");
-result = conn.session("SELECT hello()", "CSV");
+// Test session query
+session.query("CREATE FUNCTION IF NOT EXISTS hello AS () -> 'chDB'", "CSV");
+result = session.query("SELECT hello()", "CSV");
 console.log(result);
+
+// Clean up the session
+session.cleanup();
