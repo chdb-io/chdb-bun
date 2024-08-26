@@ -34,11 +34,15 @@ class Session {
 
   query(query: string, format: string = "CSV") {
     if (!query) return "";
-    return chdb.QuerySession(
+    const result = chdb.QuerySession(
       enc.encode(query + "\0"),
       enc.encode(format + "\0"),
       enc.encode(this.path + "\0"),
     );
+    if (result == null) {
+      return "";
+    }
+    return new Deno.UnsafePointerView(result).getCString();
   }
 
   constructor(path: string = "") {
