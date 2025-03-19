@@ -2,7 +2,8 @@
 #!/bin/bash
 
 # Get the newest release version
-LATEST_RELEASE=$(curl --silent "https://api.github.com/repos/chdb-io/chdb/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+#LATEST_RELEASE=$(curl --silent "https://api.github.com/repos/chdb-io/chdb/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+LATEST_RELEASE=v2.1.1
 
 # Download the correct version based on the platform
 case "$(uname -s)" in
