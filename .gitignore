@@ -1,7 +1,8 @@
 node_modules
 
 *.so
-/lib/chdb_bun.dylib
-/lib/libchdb.so
+*.dylib
+/lib/chdb.h
+/lib/chdb.hpp
 /lib/index.js
 /lib/index.d.ts

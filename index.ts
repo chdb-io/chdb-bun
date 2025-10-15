@@ -1,25 +1,37 @@
-import { dlopen, FFIType } from "bun:ffi";
-import { rmdirSync, mkdtempSync } from 'fs';
+import { cc, FFIType, CString } from "bun:ffi";
+import { rmdirSync, mkdtempSync } from "fs";
+import source from "./lib/chdb_bun.c" with { type: "file" };
 
-const path = `chdb_bun.so`;
-
-const { symbols: chdb } = dlopen(path, {
-  Query: {
-    args: [FFIType.cstring, FFIType.cstring],
-    returns: FFIType.cstring,
-  },
-  QuerySession: {
-    args: [FFIType.cstring, FFIType.cstring, FFIType.cstring],
-    returns: FFIType.cstring,
-  },
-});
+const { symbols: chdb } = cc({
+  source,
+  library: ["chdb"],
+  flags: ["-L./lib"],
+  symbols: {
+    Query: {
+      args: [FFIType.cstring, FFIType.cstring],
+      returns: FFIType.ptr,
+    },
+    QuerySession: {
+      args: [FFIType.cstring, FFIType.cstring, FFIType.cstring],
+      returns: FFIType.ptr,
+    },
+    free_cstr: {
+      args: [FFIType.ptr],
+      returns: FFIType.void,
+    }
+  }
+}); 
 
 // Standalone exported query function
 export function query(query: string, format: string = "CSV") {
-  if (!query) {
-    return "";
+  if (!query) return "";
+  const resultPtr = chdb.Query(Buffer.from(query + "\0"), Buffer.from(format + "\0"));
+  if (resultPtr === null) return "";
+  try {
+    return new CString(resultPtr).toString();
+  } finally {
+    chdb.free_cstr(resultPtr);
   }
-  return chdb.Query(Buffer.from(query + "\0"), Buffer.from(format + "\0"));
 }
 
 // Session class with path handling
@@ -29,11 +41,17 @@ class Session {
 
   query(query: string, format: string = "CSV") {
     if (!query) return "";
-    return chdb.QuerySession(
+    const resultPtr = chdb.QuerySession(
       Buffer.from(query + "\0"),
       Buffer.from(format + "\0"),
       Buffer.from(this.path + "\0")
     );
+    if (resultPtr === null) return "";
+    try {
+      return new CString(resultPtr).toString();
+    } finally {
+      chdb.free_cstr(resultPtr);
+    }
   }
 
   constructor(path: string = "") {
