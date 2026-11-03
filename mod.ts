@@ -9,6 +9,10 @@ const { symbols: chdb } = Deno.dlopen(path, {
     parameters: ["buffer", "buffer", "buffer"],
     result: "buffer",
   },
+  CloseSession: {
+    parameters: ["buffer"],
+    result: "void",
+  },
 });
 
 const enc = new TextEncoder();
@@ -58,6 +62,8 @@ class Session {
 
   // Cleanup method to delete the temporary directory
   cleanup() {
+    // Close the session's connection before removing its data directory
+    chdb.CloseSession(enc.encode(this.path + "\0"));
     Deno.removeSync(this.path, { recursive: true });
   }
 }

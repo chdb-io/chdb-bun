@@ -12,6 +12,10 @@ const { symbols: chdb } = dlopen(path, {
     args: [FFIType.cstring, FFIType.cstring, FFIType.cstring],
     returns: FFIType.cstring,
   },
+  CloseSession: {
+    args: [FFIType.cstring],
+    returns: FFIType.void,
+  },
 });
 
 // Standalone exported query function
@@ -49,6 +53,8 @@ class Session {
 
   // Cleanup method to delete the temporary directory
   cleanup() {
+    // Close the session's connection before removing its data directory
+    chdb.CloseSession(Buffer.from(this.path + "\0"));
     rmdirSync(this.path, { recursive: true });
   }
 }

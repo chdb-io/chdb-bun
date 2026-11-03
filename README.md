@@ -9,7 +9,7 @@ Experimental [chDB](https://github.com/chdb-io/chdb) FFI bindings for the [bun r
 ### Status
 
 - experimental, unstable, subject to changes
-- requires [`libchdb`](https://github.com/chdb-io/chdb) on the system
+- requires [`libchdb`](https://github.com/chdb-io/chdb-core) on the system
 - requires `gcc` or `clang`
 
 #### Build binding
