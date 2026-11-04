@@ -13,7 +13,17 @@ const { symbols: chdb } = Deno.dlopen(path, {
     parameters: ["buffer"],
     result: "void",
   },
+  Shutdown: {
+    parameters: [],
+    result: "void",
+  },
 });
+
+// libchdb must not be left running when the process exits: its own exit-time
+// teardown of an open engine can crash. Deno dispatches "unload" before it
+// exits, also on Deno.exit(), but not on an uncaught error; the native glue
+// covers that case.
+globalThis.addEventListener("unload", () => chdb.Shutdown());
 
 const enc = new TextEncoder();
 // Standalone exported query function

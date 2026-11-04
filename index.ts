@@ -16,7 +16,16 @@ const { symbols: chdb } = dlopen(path, {
     args: [FFIType.cstring],
     returns: FFIType.void,
   },
+  Shutdown: {
+    args: [],
+    returns: FFIType.void,
+  },
 });
+
+// libchdb must not be left running when the process exits: its own exit-time
+// teardown of an open engine can crash. "exit" listeners run synchronously
+// before Bun exits, also on process.exit().
+process.on("exit", () => chdb.Shutdown());
 
 // Standalone exported query function
 export function query(query: string, format: string = "CSV") {
