@@ -9,11 +9,11 @@
 
 // libchdb binds one storage path per process and is meant to boot once. The
 // deprecated query_stable() booted and tore the engine down on every call, and
-// on chdb-core the second such call in a process fails ("EventNotifier is
-// initialized twice"). So keep one connection open and reuse it while the path
-// stays the same. Switching between the in-memory default (Query) and a session
-// path (QuerySession), or between two session paths, closes it and binds the
-// new path.
+// before chdb-core v26.11.0-rc.2 the second such call in a process failed
+// ("EventNotifier is initialized twice"). So keep one connection open and
+// reuse it while the path stays the same. Switching between the in-memory
+// default (Query) and a session path (QuerySession), or between two session
+// paths, closes it and binds the new path.
 static pthread_mutex_t conn_mutex = PTHREAD_MUTEX_INITIALIZER;
 static chdb_connection *conn = NULL;
 static char *conn_path = NULL; // NULL: the in-memory default
