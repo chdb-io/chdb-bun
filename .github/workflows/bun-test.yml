@@ -26,3 +26,13 @@ jobs:
       - run: bun install
       - run: bun run build
       - run: bun run example.ts
+      - run: bun run test/worker.ts
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Deno
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}
+        run: |
+          deno run --unstable-ffi -A example.deno.ts
+          deno run --unstable-ffi -A test/worker.deno.ts

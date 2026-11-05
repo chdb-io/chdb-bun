@@ -1,3 +1,5 @@
+import { isMainThread } from "node:worker_threads";
+
 const path = "chdb_bun.so";
 
 const { symbols: chdb } = Deno.dlopen(path, {
@@ -19,11 +21,19 @@ const { symbols: chdb } = Deno.dlopen(path, {
   },
 });
 
+// Only the main thread stops the engine: a Worker dispatches "unload" when it
+// calls Deno.exit(), and chdb_shutdown() is final for the whole process.
+// node:worker_threads reports a Web Worker as the main thread, so also rule
+// out WorkerGlobalScope.
+const onMainThread = isMainThread && !("WorkerGlobalScope" in globalThis);
+
 // libchdb must not be left running when the process exits: its own exit-time
 // teardown of an open engine can crash. Deno dispatches "unload" before it
 // exits, also on Deno.exit(), but not on an uncaught error; the native glue
 // covers that case.
-globalThis.addEventListener("unload", () => chdb.Shutdown());
+if (onMainThread) {
+  globalThis.addEventListener("unload", () => chdb.Shutdown());
+}
 
 const enc = new TextEncoder();
 // Standalone exported query function

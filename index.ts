@@ -1,5 +1,6 @@
 import { dlopen, FFIType } from "bun:ffi";
 import { rmdirSync, mkdtempSync } from 'fs';
+import { isMainThread } from "worker_threads";
 
 const path = `chdb_bun.so`;
 
@@ -24,8 +25,12 @@ const { symbols: chdb } = dlopen(path, {
 
 // libchdb must not be left running when the process exits: its own exit-time
 // teardown of an open engine can crash. "exit" listeners run synchronously
-// before Bun exits, also on process.exit().
-process.on("exit", () => chdb.Shutdown());
+// before Bun exits, also on process.exit(). Only the main thread stops the
+// engine: a Worker runs its own "exit" listeners when it ends, and
+// chdb_shutdown() is final for the whole process.
+if (isMainThread) {
+  process.on("exit", () => chdb.Shutdown());
+}
 
 // Standalone exported query function
 export function query(query: string, format: string = "CSV") {
