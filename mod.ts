@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { isMainThread } from "node:worker_threads";
 
 const path = "chdb_bun.so";
@@ -83,13 +84,15 @@ class Session {
     return new Deno.UnsafePointerView(result).getCString();
   }
 
+  // The path is made absolute, so the session keeps its directory if the
+  // working directory changes.
   constructor(path: string = "") {
     if (path === "") {
       // Create a temporary directory
       this.path = Deno.makeTempDirSync();
       this.isTemp = true;
     } else {
-      this.path = path;
+      this.path = resolve(path);
       this.isTemp = false;
     }
   }

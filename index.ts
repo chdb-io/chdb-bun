@@ -1,5 +1,6 @@
 import { dlopen, FFIType } from "bun:ffi";
 import { rmdirSync, mkdtempSync } from 'fs';
+import { resolve } from "path";
 import { isMainThread } from "worker_threads";
 
 const path = `chdb_bun.so`;
@@ -54,13 +55,15 @@ class Session {
     );
   }
 
+  // The path is made absolute, so the session keeps its directory if the
+  // working directory changes.
   constructor(path: string = "") {
     if (path === "") {
       // Create a temporary directory
-      this.path = mkdtempSync("tmp-");
+      this.path = resolve(mkdtempSync("tmp-"));
       this.isTemp = true;
     } else {
-      this.path = path;
+      this.path = resolve(path);
       this.isTemp = false;
     }
   }
