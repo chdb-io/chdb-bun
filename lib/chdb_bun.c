@@ -17,6 +17,8 @@
 static pthread_mutex_t conn_mutex = PTHREAD_MUTEX_INITIALIZER;
 static chdb_connection *conn = NULL;
 static char *conn_path = NULL; // NULL: the in-memory default
+// Set once a connection was opened, until Shutdown() stops the engine.
+static int engine_started = 0;
 
 static int same_path(const char *a, const char *b) {
   if (a == NULL || b == NULL) {
@@ -59,6 +61,7 @@ static chdb_connection *acquire_conn_locked(const char *path) {
   }
   conn = c;
   conn_path = path ? strdup(path) : NULL;
+  engine_started = 1;
   return conn;
 }
 
@@ -133,13 +136,17 @@ void CloseConnection(void) {
 // on the main thread when the process exits. chdb.h requires a host to close
 // every connection and call chdb_shutdown() before its own exit-time teardown:
 // libchdb's atexit teardown of an engine still open at exit runs among C++
-// static destructors and can crash while MergeTree background work runs. Like
-// the Python binding, stop the engine only if a connection was still open.
-// Queries fail afterwards.
+// static destructors and can crash while MergeTree background work runs. Stop
+// the engine also when no connection is open any more (Session.cleanup(),
+// CloseConnection()): chdb_shutdown() also stops the threads a closed engine
+// leaves running, such as the global thread pool and jemalloc's background
+// threads, before the runtime unloads the library. Skip it if no connection
+// was ever opened. Queries fail afterwards.
 void Shutdown(void) {
   pthread_mutex_lock(&conn_mutex);
-  if (conn != NULL) {
-    close_conn_locked();
+  close_conn_locked();
+  if (engine_started) {
+    engine_started = 0;
     // Reports its own failure on stderr.
     (void)chdb_shutdown();
   }
