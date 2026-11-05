@@ -61,9 +61,11 @@ static chdb_connection *acquire_conn_locked(const char *path) {
   conn_path = path ? strdup(path) : NULL;
 
   // Backstop for exits that run no JS exit listener (Deno on an uncaught
-  // error). Registered after the first chdb_connect() installed libchdb's own
-  // exit handler, so it runs before that one, both at exit() and when the
-  // runtime unloads this library.
+  // error). A runtime that unloads this library, as Deno does, runs it before
+  // libchdb is unloaded and runs its own exit teardown. At a plain exit() the
+  // order can be reversed: libchdb registers that teardown on every engine
+  // start, so after a path switch it runs first and stops the open engine
+  // itself.
   static int exit_handler_registered = 0;
   if (!exit_handler_registered) {
     exit_handler_registered = 1;
