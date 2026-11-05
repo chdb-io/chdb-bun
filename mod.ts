@@ -44,7 +44,9 @@ if (onMainThread) {
   // stop the engine for good: a later listener can handle the error and keep
   // the program running, and its next query then opens a new connection to a
   // fresh engine. What the closed connection kept only in memory is lost; a
-  // session's tables on disk are not.
+  // session's tables on disk are not. Waiting for the later listeners first is
+  // not possible: when no listener handles the event, Deno exits before any
+  // deferred callback (microtask or timer) runs.
   const closeOnError = (event: Event) => {
     if (!event.defaultPrevented) chdb.CloseConnection();
   };
