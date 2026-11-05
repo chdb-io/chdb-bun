@@ -36,3 +36,18 @@ jobs:
         run: |
           deno run --unstable-ffi -A example.deno.ts
           deno run --unstable-ffi -A test/worker.deno.ts
+      - name: Deno, uncaught errors
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}
+        run: |
+          for kind in throw error rejection; do
+            set +e
+            timeout 300 deno run --unstable-ffi -A test/uncaught.deno.ts $kind > uncaught.log 2>&1
+            status=$?
+            set -e
+            cat uncaught.log
+            if [ $status -ne 1 ] || ! grep -q "uncaught on purpose" uncaught.log; then
+              echo "test/uncaught.deno.ts $kind: exit status $status, expected 1 with the error printed"
+              exit 1
+            fi
+          done

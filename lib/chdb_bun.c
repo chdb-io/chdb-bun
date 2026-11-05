@@ -59,18 +59,6 @@ static chdb_connection *acquire_conn_locked(const char *path) {
   }
   conn = c;
   conn_path = path ? strdup(path) : NULL;
-
-  // Backstop for exits that run no JS exit listener (Deno on an uncaught
-  // error). A runtime that unloads this library, as Deno does, runs it before
-  // libchdb is unloaded and runs its own exit teardown. At a plain exit() the
-  // order can be reversed: libchdb registers that teardown on every engine
-  // start, so after a path switch it runs first and stops the open engine
-  // itself.
-  static int exit_handler_registered = 0;
-  if (!exit_handler_registered) {
-    exit_handler_registered = 1;
-    atexit(Shutdown);
-  }
   return conn;
 }
 
@@ -133,12 +121,21 @@ void CloseSession(const char *path) {
   pthread_mutex_unlock(&conn_mutex);
 }
 
+// Close the open connection, if any. The next query opens a new one. mod.ts
+// calls this on an uncaught error, before Deno unloads the library.
+void CloseConnection(void) {
+  pthread_mutex_lock(&conn_mutex);
+  close_conn_locked();
+  pthread_mutex_unlock(&conn_mutex);
+}
+
 // Close the open connection and stop the engine. index.ts and mod.ts call this
-// when the process exits. chdb.h requires a host to close every connection and
-// call chdb_shutdown() before its own exit-time teardown: libchdb's atexit
-// teardown of an engine still open at exit runs among C++ static destructors
-// and can crash while MergeTree background work runs. Like the Python binding,
-// stop the engine only if a connection was still open. Queries fail afterwards.
+// on the main thread when the process exits. chdb.h requires a host to close
+// every connection and call chdb_shutdown() before its own exit-time teardown:
+// libchdb's atexit teardown of an engine still open at exit runs among C++
+// static destructors and can crash while MergeTree background work runs. Like
+// the Python binding, stop the engine only if a connection was still open.
+// Queries fail afterwards.
 void Shutdown(void) {
   pthread_mutex_lock(&conn_mutex);
   if (conn != NULL) {

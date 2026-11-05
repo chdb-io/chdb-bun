@@ -15,6 +15,10 @@ const { symbols: chdb } = Deno.dlopen(path, {
     parameters: ["buffer"],
     result: "void",
   },
+  CloseConnection: {
+    parameters: [],
+    result: "void",
+  },
   Shutdown: {
     parameters: [],
     result: "void",
@@ -27,12 +31,22 @@ const { symbols: chdb } = Deno.dlopen(path, {
 // out WorkerGlobalScope.
 const onMainThread = isMainThread && !("WorkerGlobalScope" in globalThis);
 
-// libchdb must not be left running when the process exits: its own exit-time
-// teardown of an open engine can crash. Deno dispatches "unload" before it
-// exits, also on Deno.exit(), but not on an uncaught error; the native glue
-// covers that case.
 if (onMainThread) {
+  // libchdb must not be left running when the process exits: its own
+  // exit-time teardown of an open engine can crash. Deno dispatches "unload"
+  // before it exits, also on Deno.exit().
   globalThis.addEventListener("unload", () => chdb.Shutdown());
+
+  // On an uncaught error or unhandled rejection Deno exits without "unload"
+  // and unloads the library with the engine still open, which hangs or
+  // crashes while MergeTree merges run. Close the connection first. Do not
+  // stop the engine for good: a later listener can handle the error and keep
+  // the program running, and its next query then opens a new connection.
+  const closeOnError = (event: Event) => {
+    if (!event.defaultPrevented) chdb.CloseConnection();
+  };
+  globalThis.addEventListener("error", closeOnError);
+  globalThis.addEventListener("unhandledrejection", closeOnError);
 }
 
 const enc = new TextEncoder();
