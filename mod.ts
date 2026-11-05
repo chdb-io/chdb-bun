@@ -1,3 +1,6 @@
+import { resolve } from "node:path";
+import { isMainThread } from "node:worker_threads";
+
 const path = "chdb_bun.so";
 
 const { symbols: chdb } = Deno.dlopen(path, {
@@ -9,7 +12,47 @@ const { symbols: chdb } = Deno.dlopen(path, {
     parameters: ["buffer", "buffer", "buffer"],
     result: "buffer",
   },
+  CloseSession: {
+    parameters: ["buffer"],
+    result: "void",
+  },
+  CloseConnection: {
+    parameters: [],
+    result: "void",
+  },
+  Shutdown: {
+    parameters: [],
+    result: "void",
+  },
 });
+
+// Only the main thread stops the engine: a Worker dispatches "unload" when it
+// calls Deno.exit(), and chdb_shutdown() is final for the whole process.
+// node:worker_threads reports a Web Worker as the main thread, so also rule
+// out WorkerGlobalScope.
+const onMainThread = isMainThread && !("WorkerGlobalScope" in globalThis);
+
+if (onMainThread) {
+  // libchdb must not be left running when the process exits: its own
+  // exit-time teardown of an open engine can crash. Deno dispatches "unload"
+  // before it exits, also on Deno.exit().
+  globalThis.addEventListener("unload", () => chdb.Shutdown());
+
+  // On an uncaught error or unhandled rejection Deno exits without "unload"
+  // and unloads the library with the engine still open, which hangs or
+  // crashes while MergeTree merges run. Close the connection first. Do not
+  // stop the engine for good: a later listener can handle the error and keep
+  // the program running, and its next query then opens a new connection to a
+  // fresh engine. What the closed connection kept only in memory is lost; a
+  // session's tables on disk are not. Waiting for the later listeners first is
+  // not possible: when no listener handles the event, Deno exits before any
+  // deferred callback (microtask or timer) runs.
+  const closeOnError = (event: Event) => {
+    if (!event.defaultPrevented) chdb.CloseConnection();
+  };
+  globalThis.addEventListener("error", closeOnError);
+  globalThis.addEventListener("unhandledrejection", closeOnError);
+}
 
 const enc = new TextEncoder();
 // Standalone exported query function
@@ -45,19 +88,23 @@ class Session {
     return new Deno.UnsafePointerView(result).getCString();
   }
 
+  // The path is made absolute, so the session keeps its directory if the
+  // working directory changes.
   constructor(path: string = "") {
     if (path === "") {
       // Create a temporary directory
       this.path = Deno.makeTempDirSync();
       this.isTemp = true;
     } else {
-      this.path = path;
+      this.path = resolve(path);
       this.isTemp = false;
     }
   }
 
   // Cleanup method to delete the temporary directory
   cleanup() {
+    // Close the session's connection before removing its data directory
+    chdb.CloseSession(enc.encode(this.path + "\0"));
     Deno.removeSync(this.path, { recursive: true });
   }
 }

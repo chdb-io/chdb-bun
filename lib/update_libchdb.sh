@@ -2,8 +2,8 @@
 #!/bin/bash
 
 # Get the newest release version
-#LATEST_RELEASE=$(curl --silent "https://api.github.com/repos/chdb-io/chdb/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-LATEST_RELEASE=v2.1.1
+#LATEST_RELEASE=$(curl --silent "https://api.github.com/repos/chdb-io/chdb-core/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+LATEST_RELEASE=v26.11.0-rc.2
 
 # Download the correct version based on the platform
 case "$(uname -s)" in
@@ -27,7 +27,7 @@ case "$(uname -s)" in
         ;;
 esac
 
-DOWNLOAD_URL="https://github.com/chdb-io/chdb/releases/download/$LATEST_RELEASE/$PLATFORM"
+DOWNLOAD_URL="https://github.com/chdb-io/chdb-core/releases/download/$LATEST_RELEASE/$PLATFORM"
 
 echo "Downloading $PLATFORM from $DOWNLOAD_URL"
 

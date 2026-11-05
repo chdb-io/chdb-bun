@@ -1,77 +1,154 @@
 #include "chdb.h"
 #include "chdb_bun.h"
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_FORMAT_LENGTH 64
 #define MAX_PATH_LENGTH 4096
-#define MAX_ARG_COUNT 6
 
-// Utility function to construct argument string
-void construct_arg(char *dest, const char *prefix, const char *value,
-                   size_t dest_size) {
-  snprintf(dest, dest_size, "%s%s", prefix, value);
+// libchdb binds one storage path per process and is meant to boot once. The
+// deprecated query_stable() booted and tore the engine down on every call, and
+// before chdb-core v26.11.0-rc.2 the second such call in a process failed
+// ("EventNotifier is initialized twice"). So keep one connection open and
+// reuse it while the path stays the same. Switching between the in-memory
+// default (Query) and a session path (QuerySession), or between two session
+// paths, closes it and binds the new path.
+static pthread_mutex_t conn_mutex = PTHREAD_MUTEX_INITIALIZER;
+static chdb_connection *conn = NULL;
+static char *conn_path = NULL; // NULL: the in-memory default
+// Set once a connection was opened, until Shutdown() stops the engine.
+static int engine_started = 0;
+
+static int same_path(const char *a, const char *b) {
+  if (a == NULL || b == NULL) {
+    return a == b;
+  }
+  return strcmp(a, b) == 0;
 }
 
-// Generalized query function
-char *general_query(int argc, char *args[]) {
-  struct local_result *result = query_stable(argc, args);
-
-  if (result == NULL) {
-    return NULL;
-  } else {
-    return result->buf;
+// Caller holds conn_mutex.
+static void close_conn_locked(void) {
+  if (conn != NULL) {
+    chdb_close_conn(conn);
+    conn = NULL;
   }
+  free(conn_path);
+  conn_path = NULL;
+}
+
+// Caller holds conn_mutex. path is NULL for the in-memory default.
+static chdb_connection *acquire_conn_locked(const char *path) {
+  char dataPath[MAX_PATH_LENGTH];
+  char *args[3] = {"clickhouse", NULL, NULL};
+  int argc = 1;
+
+  if (conn != NULL && same_path(conn_path, path)) {
+    return conn;
+  }
+  close_conn_locked();
+
+  if (path != NULL) {
+    snprintf(dataPath, sizeof(dataPath), "--path=%s", path);
+    args[argc++] = dataPath;
+  }
+
+  chdb_connection *c = chdb_connect(argc, args);
+  if (c == NULL || *c == NULL) {
+    fprintf(stderr, "chdb-bun: failed to connect%s%s\n",
+            path ? " to path " : "", path ? path : "");
+    return NULL;
+  }
+  conn = c;
+  conn_path = path ? strdup(path) : NULL;
+  engine_started = 1;
+  return conn;
+}
+
+// Run a query on the connection for path. Returns a NUL-terminated copy of the
+// result (chdb_result_buffer is not NUL-terminated), or NULL on error after
+// printing the error to stderr.
+static char *run_query(const char *path, const char *query,
+                       const char *format) {
+  char *output = NULL;
+
+  pthread_mutex_lock(&conn_mutex);
+  chdb_connection *c = acquire_conn_locked(path);
+  if (c == NULL) {
+    pthread_mutex_unlock(&conn_mutex);
+    return NULL;
+  }
+
+  // The result is read and destroyed under the lock too, so the connection
+  // cannot be closed while a result derived from it is alive.
+  chdb_result *result =
+      chdb_query_n(*c, query, strlen(query), format, strlen(format));
+  if (result != NULL) {
+    const char *error = chdb_result_error(result);
+    if (error != NULL) {
+      fprintf(stderr, "%s\n", error);
+    } else {
+      const char *buf = chdb_result_buffer(result);
+      size_t len = chdb_result_length(result);
+      output = (char *)malloc(len + 1);
+      if (output != NULL) {
+        if (len > 0) {
+          memcpy(output, buf, len);
+        }
+        output[len] = '\0';
+      }
+    }
+    chdb_destroy_query_result(result);
+  }
+  pthread_mutex_unlock(&conn_mutex);
+  return output;
 }
 
 // Query function without session
 char *Query(const char *query, const char *format) {
-  char dataFormat[MAX_FORMAT_LENGTH];
-  char *dataQuery;
-  char *args[MAX_ARG_COUNT] = {"clickhouse", "--multiquery", NULL, NULL};
-  int argc = 4;
-
-  construct_arg(dataFormat, "--output-format=", format, MAX_FORMAT_LENGTH);
-  args[2] = dataFormat;
-
-  dataQuery = (char *)malloc(strlen(query) + strlen("--query=") + 1);
-  if (dataQuery == NULL) {
-    return NULL;
-  }
-  construct_arg(dataQuery, "--query=", query,
-                strlen(query) + strlen("--query=") + 1);
-  args[3] = dataQuery;
-
-  char *result = general_query(argc, args);
-  free(dataQuery);
-  return result;
+  return run_query(NULL, query, format);
 }
 
 // QuerySession function will save the session to the path
 // queries with same path will use the same session
 char *QuerySession(const char *query, const char *format, const char *path) {
-  char dataFormat[MAX_FORMAT_LENGTH];
-  char dataPath[MAX_PATH_LENGTH];
-  char *dataQuery;
-  char *args[MAX_ARG_COUNT] = {"clickhouse", "--multiquery", NULL, NULL, NULL};
-  int argc = 5;
+  return run_query(path, query, format);
+}
 
-  construct_arg(dataFormat, "--output-format=", format, MAX_FORMAT_LENGTH);
-  args[2] = dataFormat;
-
-  dataQuery = (char *)malloc(strlen(query) + strlen("--query=") + 1);
-  if (dataQuery == NULL) {
-    return NULL;
+// Close the connection if it is bound to path, so the directory can be removed
+void CloseSession(const char *path) {
+  pthread_mutex_lock(&conn_mutex);
+  if (conn != NULL && same_path(conn_path, path)) {
+    close_conn_locked();
   }
-  construct_arg(dataQuery, "--query=", query,
-                strlen(query) + strlen("--query=") + 1);
-  args[3] = dataQuery;
+  pthread_mutex_unlock(&conn_mutex);
+}
 
-  construct_arg(dataPath, "--path=", path, MAX_PATH_LENGTH);
-  args[4] = dataPath;
+// Close the open connection, if any. The next query opens a new one. mod.ts
+// calls this on an uncaught error, before Deno unloads the library.
+void CloseConnection(void) {
+  pthread_mutex_lock(&conn_mutex);
+  close_conn_locked();
+  pthread_mutex_unlock(&conn_mutex);
+}
 
-  char *result = general_query(argc, args);
-  free(dataQuery);
-  return result;
+// Close the open connection and stop the engine. index.ts and mod.ts call this
+// on the main thread when the process exits. chdb.h requires a host to close
+// every connection and call chdb_shutdown() before its own exit-time teardown:
+// libchdb's atexit teardown of an engine still open at exit runs among C++
+// static destructors and can crash while MergeTree background work runs. Stop
+// the engine also when no connection is open any more (Session.cleanup(),
+// CloseConnection()): chdb_shutdown() also stops the threads a closed engine
+// leaves running, such as the global thread pool and jemalloc's background
+// threads, before the runtime unloads the library. Skip it if no connection
+// was ever opened. Queries fail afterwards.
+void Shutdown(void) {
+  pthread_mutex_lock(&conn_mutex);
+  close_conn_locked();
+  if (engine_started) {
+    engine_started = 0;
+    // Reports its own failure on stderr.
+    (void)chdb_shutdown();
+  }
+  pthread_mutex_unlock(&conn_mutex);
 }

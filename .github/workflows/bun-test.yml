@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v3
       - name: Fetch library
         run: |
-          wget https://github.com/chdb-io/chdb/releases/latest/download/linux-x86_64-libchdb.tar.gz
+          wget https://github.com/chdb-io/chdb-core/releases/download/v26.11.0-rc.2/linux-x86_64-libchdb.tar.gz
           tar -xzf linux-x86_64-libchdb.tar.gz
           sudo mv libchdb.so /usr/lib/libchdb.so
           sudo ldconfig
@@ -26,3 +26,28 @@ jobs:
       - run: bun install
       - run: bun run build
       - run: bun run example.ts
+      - run: bun run test/worker.ts
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Deno
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}
+        run: |
+          deno run --unstable-ffi -A example.deno.ts
+          deno run --unstable-ffi -A test/worker.deno.ts
+      - name: Deno, uncaught errors
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}
+        run: |
+          for kind in throw error rejection; do
+            set +e
+            timeout 300 deno run --unstable-ffi -A test/uncaught.deno.ts $kind > uncaught.log 2>&1
+            status=$?
+            set -e
+            cat uncaught.log
+            if [ $status -ne 1 ] || ! grep -q "uncaught on purpose" uncaught.log; then
+              echo "test/uncaught.deno.ts $kind: exit status $status, expected 1 with the error printed"
+              exit 1
+            fi
+          done

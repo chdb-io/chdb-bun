@@ -1,5 +1,7 @@
 import { dlopen, FFIType } from "bun:ffi";
 import { rmdirSync, mkdtempSync } from 'fs';
+import { resolve } from "path";
+import { isMainThread } from "worker_threads";
 
 const path = `chdb_bun.so`;
 
@@ -12,7 +14,24 @@ const { symbols: chdb } = dlopen(path, {
     args: [FFIType.cstring, FFIType.cstring, FFIType.cstring],
     returns: FFIType.cstring,
   },
+  CloseSession: {
+    args: [FFIType.cstring],
+    returns: FFIType.void,
+  },
+  Shutdown: {
+    args: [],
+    returns: FFIType.void,
+  },
 });
+
+// libchdb must not be left running when the process exits: its own exit-time
+// teardown of an open engine can crash. "exit" listeners run synchronously
+// before Bun exits, also on process.exit(). Only the main thread stops the
+// engine: a Worker runs its own "exit" listeners when it ends, and
+// chdb_shutdown() is final for the whole process.
+if (isMainThread) {
+  process.on("exit", () => chdb.Shutdown());
+}
 
 // Standalone exported query function
 export function query(query: string, format: string = "CSV") {
@@ -36,19 +55,23 @@ class Session {
     );
   }
 
+  // The path is made absolute, so the session keeps its directory if the
+  // working directory changes.
   constructor(path: string = "") {
     if (path === "") {
       // Create a temporary directory
-      this.path = mkdtempSync("tmp-");
+      this.path = resolve(mkdtempSync("tmp-"));
       this.isTemp = true;
     } else {
-      this.path = path;
+      this.path = resolve(path);
       this.isTemp = false;
     }
   }
 
   // Cleanup method to delete the temporary directory
   cleanup() {
+    // Close the session's connection before removing its data directory
+    chdb.CloseSession(Buffer.from(this.path + "\0"));
     rmdirSync(this.path, { recursive: true });
   }
 }
