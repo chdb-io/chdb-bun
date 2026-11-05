@@ -42,7 +42,9 @@ if (onMainThread) {
   // and unloads the library with the engine still open, which hangs or
   // crashes while MergeTree merges run. Close the connection first. Do not
   // stop the engine for good: a later listener can handle the error and keep
-  // the program running, and its next query then opens a new connection.
+  // the program running, and its next query then opens a new connection to a
+  // fresh engine. What the closed connection kept only in memory is lost; a
+  // session's tables on disk are not.
   const closeOnError = (event: Event) => {
     if (!event.defaultPrevented) chdb.CloseConnection();
   };

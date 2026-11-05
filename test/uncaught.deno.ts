@@ -4,22 +4,31 @@
 // merges ran left the engine open when Deno unloaded the library.
 import { query, Session } from "../mod.ts";
 
-// An error that a listener handles leaves chdb-bun usable.
+// An error or rejection that a later listener handles leaves chdb-bun usable:
+// the next query opens a new connection.
 if (query("SELECT 1", "CSV") !== "1\n") throw new Error("first query failed");
-let handled = () => {};
-const wasHandled = new Promise<void>((resolve) => (handled = resolve));
-const handle = (event: PromiseRejectionEvent) => {
-  event.preventDefault();
-  handled();
-};
-globalThis.addEventListener("unhandledrejection", handle);
-Promise.reject(new Error("handled on purpose"));
-await wasHandled;
-globalThis.removeEventListener("unhandledrejection", handle);
-const after = query("SELECT 2", "CSV");
-if (after !== "2\n") {
-  console.error(`query after a handled rejection: got ${JSON.stringify(after)}`);
-  Deno.exit(2);
+for (const type of ["error", "unhandledrejection"]) {
+  let handled = () => {};
+  const wasHandled = new Promise<void>((resolve) => (handled = resolve));
+  const handle = (event: Event) => {
+    event.preventDefault();
+    handled();
+  };
+  globalThis.addEventListener(type, handle);
+  if (type === "error") {
+    setTimeout(() => {
+      throw new Error("handled on purpose");
+    }, 0);
+  } else {
+    Promise.reject(new Error("handled on purpose"));
+  }
+  await wasHandled;
+  globalThis.removeEventListener(type, handle);
+  const after = query("SELECT 2", "CSV");
+  if (after !== "2\n") {
+    console.error(`query after a handled ${type}: got ${JSON.stringify(after)}`);
+    Deno.exit(2);
+  }
 }
 
 // Many small inserts, so that merges run when the error ends the process.
